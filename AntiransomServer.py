@@ -98,6 +98,10 @@ class MyRequestHandler(SocketServer.BaseRequestHandler):
                 args = ["-r", "AR_" + str(StrCommands[1]), "-f", "exe", "./Samples/Test/"]
                 generateYara(args)
 
+                f = open("./Rules/AR.yar", 'a')
+                f.write('include "' + "AR_" + str(StrCommands[1]) + '.yar"\n')
+                f.close()
+
 def main(argv):
     global g_vm
     g_vm = VBoxAuto('Sandbox-Windows 7 x64')
