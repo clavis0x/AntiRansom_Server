@@ -30,7 +30,7 @@ class CheckVMThread(threading.Thread):
         while True:
             if not queueVm.empty():
                 item = queueVm.get()
-                print "[INFO] Output Queue - " + str(item)
+                print "[INFO] Dequeue - " + str(item)
                 os.system("rm -rf ./Samples/Test/*")
                 os.system("cp ./Samples/" + str(item) + " ./Samples/Test/" + str(item) + ".exe")
                 g_im.SetItemName(item)
@@ -85,7 +85,7 @@ class MyRequestHandler(SocketServer.BaseRequestHandler):
         print "[INFO] File Transfer Complete (" + str(file_name) + ")"
         f.close()
         item = g_db.AddListCheckVM(file_type, hashSHA.hexdigest(), file_name, file_size, detected_b)
-        print "[INFO] Input Queue - " + str(file_name)
+        print "[INFO] Enqueue - " + str(file_name)
         queueVm.put(str(file_name))
     def RecvResult(self, StrCommands):
         if StrCommands[1] == g_im.GetItemName():
@@ -127,5 +127,3 @@ def main(argv):
 
 if __name__ == '__main__':
     main(sys.argv)
-
-
