@@ -226,6 +226,56 @@ void SecToTime(int sec, char *szTimeText)
 	return;
 }
 
+
+
+
+bool CheckFileIntegrity()
+{
+	bool result = true;
+	long file_size;
+	list<ITEM_FILE_MD5>::iterator itor = g_listFileMD5.begin();
+	md5_byte_t digHashMD5[16] = { 0 };
+
+	// 무결성 검사 대상 파일들을 리스트에서 불러옴
+	while (itor != g_listFileMD5.end()) {
+		// MD5 Hash Digest를 구함
+		if (GetFileMD5Hash(itor->szFilePath, digHashMD5, &file_size) == false) {
+			// 파일이 삭제됨
+			ZeroMemory(digHashMD5, 16);
+			memcpy(itor->a_digHashMD5, digHashMD5, 16);
+
+			// MD5 변경됨
+			itor->isChanged = true;
+		}
+		else {
+			// 랜섬웨어 실행 전 파일의 MD5 값과 현재의 MD5를 비교
+			if (memcmp(digHashMD5, itor->b_digHashMD5, 16) != 0) {
+				// MD5 변경됨
+				itor->isChanged = true;
+			}
+		}
+		itor++;
+	}
+
+	// 결과 출력
+	(생략)
+
+	return result;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 bool CheckFileIntegrity()
 {
 	bool result = true;

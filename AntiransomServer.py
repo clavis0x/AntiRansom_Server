@@ -7,6 +7,7 @@ import sys
 import threading
 import datetime
 import time
+import zipfile
 #import YaraGenerator
 from YaraGenerator.yaraGenerator import *
 from Modules.vboxauto import VBoxAuto
@@ -23,6 +24,21 @@ class ItemManager:
     def GetItemName(self):
         return self.nowItem
 
+def unzip(source_file, dest_path):
+    with zipfile.ZipFile(source_file, 'r') as zf:
+        zf.extractall(path=dest_path)
+        zf.close()
+
+def zip(src_path, dest_file):
+    with zipfile.ZipFile(dest_file, 'w') as zf:
+        rootpath = src_path
+        for (path, dir, files) in os.walk(src_path):
+            for file in files:
+                fullpath = os.path.join(path, file)
+                relpath = os.path.relpath(fullpath, rootpath);
+                zf.write(fullpath, relpath, zipfile.ZIP_DEFLATED)
+        zf.close()
+
 class CheckVMThread(threading.Thread):
     def __init__(self, taskId):
         threading.Thread.__init__(self)
@@ -32,7 +48,8 @@ class CheckVMThread(threading.Thread):
                 item = queueVm.get()
                 print "[INFO] Dequeue - " + str(item)
                 os.system("rm -rf ./Samples/Test/*")
-                os.system("cp ./Samples/" + str(item) + " ./Samples/Test/" + str(item) + ".exe")
+                os.system("cp ./Samples/" + str(item)
+                          + " ./Samples/Test/" + str(item) + ".exe")
                 g_im.SetItemName(item)
 
                 # Start VM Test
@@ -41,7 +58,7 @@ class CheckVMThread(threading.Thread):
                 print '[INFO] Start VM'
                 g_vm.startVm()
                 time.sleep(3)
-                g_vm.execInGuest()
+                g_vm.execInGuest("C:\\run.bat")
                 time.sleep(10)
                 for i in range(100):
                     if g_im.GetItemName() == item:
@@ -60,13 +77,15 @@ class MyRequestHandler(SocketServer.BaseRequestHandler):
         csock = self.request
         print '[INFO] ...connected from:', self.client_address
         hdrCommand  = csock.recv(BUFSIZE).decode()
-        StrCommands = [str(x).rstrip('\x00') for x in hdrCommand.split(' ') if x.strip()]
+        StrCommands = [str(x).rstrip('\x00')
+                       for x in hdrCommand.split(' ') if x.strip()]
         print StrCommands
         if StrCommands[0] == "CheckVM":
             self.RecvFile(csock, StrCommands)
         elif StrCommands[0] == "ResultVM":
             self.RecvResult(StrCommands)
-        #elif StrCommands[0] == "UpdateDB":
+        elif StrCommands[0] == "UpdateDB":
+            self.SendRules(csock, StrCommands)
     def RecvFile(self, csock, StrCommands):
         hashSHA = hashlib.sha256()
         dt = datetime.now()
@@ -84,7 +103,8 @@ class MyRequestHandler(SocketServer.BaseRequestHandler):
             hashSHA.update(buf)
         print "[INFO] File Transfer Complete (" + str(file_name) + ")"
         f.close()
-        item = g_db.AddListCheckVM(file_type, hashSHA.hexdigest(), file_name, file_size, detected_b)
+        item = g_db.AddListCheckVM(file_type, hashSHA.hexdigest(),
+                                   file_name, file_size, detected_b)
         print "[INFO] Enqueue - " + str(file_name)
         queueVm.put(str(file_name))
     def RecvResult(self, StrCommands):
@@ -101,6 +121,16 @@ class MyRequestHandler(SocketServer.BaseRequestHandler):
                 f = open("./Rules/AR.yar", 'a')
                 f.write('include "' + "AR_" + str(StrCommands[1]) + '.yar"\n')
                 f.close()
+    def SendRules(self, csock, StrCommands):
+        zip('./Rules/', './updb_ar.zip')
+        file_size = os.path.getsize("./updb_ar.zip")
+        csock.send(str(file_size) + str('\x00'))
+        f = open("./updb_ar.zip", 'rb')
+        buf = f.read(1024)
+        while (buf):
+            csock.send(buf)
+            buf = f.read(1024)
+        f.close()
 
 def main(argv):
     global g_vm
